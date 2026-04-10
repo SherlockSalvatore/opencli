@@ -14,17 +14,17 @@ interface Definition {
 cli({
   site: 'mubu',
   name: 'doc',
-  description: '读取幕布文档内容，支持纯文本或 Markdown 输出',
+  description: '读取幕布文档内容（默认输出 Markdown，可用 --output text 输出纯文本）',
   domain: 'mubu.com',
   strategy: Strategy.COOKIE,
   args: [
     { name: 'id', positional: true, required: true, help: '文档 ID' },
-    { name: 'output', default: 'text', help: '输出格式：text（默认）或 md' },
+    { name: 'output', default: 'md', help: '输出格式：md（默认，缩进列表 Markdown，适合导入 Obsidian）或 text（纯文本，适合终端阅读）' },
   ],
   columns: ['content'],
   func: async (page: IPage, kwargs) => {
     const docId = kwargs.id as string;
-    const format = (kwargs.output as string) ?? 'text';
+    const format = (kwargs.output as string) ?? 'md';
 
     await page.goto('https://mubu.com/app');
 
