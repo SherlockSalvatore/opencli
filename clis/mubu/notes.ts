@@ -212,6 +212,9 @@ cli({
   func: async (page: IPage, kwargs) => {
     const isList = kwargs.list as boolean;
     const format = kwargs.output as string;
+    if (format !== 'md' && format !== 'text') {
+      throw new Error(`--output 只接受 md 或 text，收到：${format}`);
+    }
 
     await page.goto('https://mubu.com/app');
 
