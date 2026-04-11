@@ -164,10 +164,10 @@ function taskMeta(node: MubuNode): string {
   const parts: string[] = [];
   if (node.deadline) {
     const ts = formatDate(node.deadline * 1000);
-    parts.push(`截止: ${node.deadlineType === 'date' ? ts.slice(0, 10) : ts}`);
+    parts.push(`📅 ${node.deadlineType === 'date' ? ts.slice(0, 10) : ts}`);
   }
-  if (node.remindAt) parts.push(`提醒: ${formatDate(node.remindAt * 1000)}`);
-  return parts.length ? ` (${parts.join(', ')})` : '';
+  if (node.remindAt) parts.push(`⏰ ${formatDate(node.remindAt * 1000)}`);
+  return parts.length ? ' ' + parts.join(' ') : '';
 }
 
 /** 递归将节点树渲染为缩进纯文本 */
