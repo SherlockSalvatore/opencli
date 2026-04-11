@@ -1,6 +1,6 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
-import { mubuPost, nodesToMarkdown, htmlToText, type MubuNode, type DocResponse, type Definition } from './utils.js';
+import { mubuPost, nodesToMarkdown, nodesToText, htmlToText, type MubuNode, type DocResponse, type Definition } from './utils.js';
 
 // ── 类型 ──────────────────────────────────────────────────
 
@@ -170,6 +170,7 @@ cli({
     '  notes --list                   今年所有有记录日期+条数',
     '  notes --list --month 2026-04   4月日期+条数',
     '  notes --list --from 2026-01-01 --to 2026-03-31  Q1日期+条数',
+    '  notes --output text                今天内容（纯文本）',
   ].join('\n'),
   domain: 'mubu.com',
   strategy: Strategy.COOKIE,
@@ -201,10 +202,16 @@ cli({
       name: 'to',
       help: '范围截止日，格式 YYYY-MM-DD。须与 --from 同时使用。',
     },
+    {
+      name: 'output',
+      default: 'md',
+      help: '输出格式：md（默认，Markdown）或 text（纯文本）',
+    },
   ],
   columns: ['date', 'content'],
   func: async (page: IPage, kwargs) => {
     const isList = kwargs.list as boolean;
+    const format = kwargs.output as string;
 
     await page.goto('https://mubu.com/app');
 
@@ -234,11 +241,14 @@ cli({
     }
 
     // 内容模式
+    const render = (children: MubuNode[]) =>
+      format === 'text' ? nodesToText(children) : nodesToMarkdown(children);
+
     return allEntries
       .filter((e) => e.node.children?.length)
       .map((e) => ({
         date: e.label,
-        content: nodesToMarkdown(e.node.children ?? []) || '（空）',
+        content: render(e.node.children ?? []) || '（空）',
       }));
   },
 });
