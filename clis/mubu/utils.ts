@@ -106,6 +106,22 @@ export async function mubuPost<T = unknown>(
   return data.data;
 }
 
+export interface DocResponse {
+  name: string;
+  definition: string;
+}
+
+export interface Definition {
+  nodes: MubuNode[];
+}
+
+export interface ListResponse {
+  folders: MubuFolder[];
+  documents: MubuDocument[];
+  source: string;
+  folderId?: string;
+}
+
 export function formatDate(ts: number): string {
   if (!ts) return '';
   const d = new Date(ts);

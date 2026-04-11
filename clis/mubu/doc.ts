@@ -1,15 +1,6 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
-import { mubuPost, nodesToMarkdown, nodesToText, type MubuNode } from './utils.js';
-
-interface DocResponse {
-  name: string;
-  definition: string;
-}
-
-interface Definition {
-  nodes: MubuNode[];
-}
+import { mubuPost, nodesToMarkdown, nodesToText, type MubuNode, type DocResponse, type Definition } from './utils.js';
 
 cli({
   site: 'mubu',

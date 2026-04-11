@@ -1,12 +1,6 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
-import { formatDate, mubuPost, type MubuDocument, type MubuFolder } from './utils.js';
-
-interface ListResponse {
-  folders: MubuFolder[];
-  documents: MubuDocument[];
-  source: string;
-}
+import { formatDate, mubuPost, type MubuDocument, type MubuFolder, type ListResponse } from './utils.js';
 
 cli({
   site: 'mubu',

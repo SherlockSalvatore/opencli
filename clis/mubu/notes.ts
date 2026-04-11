@@ -1,21 +1,12 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
-import { mubuPost, nodesToMarkdown, htmlToText, type MubuNode } from './utils.js';
+import { mubuPost, nodesToMarkdown, htmlToText, type MubuNode, type DocResponse, type Definition } from './utils.js';
 
 // ── 类型 ──────────────────────────────────────────────────
 
 interface DailyDoc {
   id: string;
   name: string; // e.g. "2026年"
-}
-
-interface DocResponse {
-  name: string;
-  definition: string;
-}
-
-interface Definition {
-  nodes: MubuNode[];
 }
 
 interface SimpleDate {
