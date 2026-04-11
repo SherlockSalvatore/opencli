@@ -15,7 +15,7 @@ cli({
   columns: ['content'],
   func: async (page: IPage, kwargs) => {
     const docId = kwargs.id as string;
-    const format = (kwargs.output as string) ?? 'md';
+    const format = kwargs.output as string;
 
     await page.goto('https://mubu.com/app');
 

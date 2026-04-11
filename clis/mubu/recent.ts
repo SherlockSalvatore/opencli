@@ -13,7 +13,7 @@ cli({
   ],
   columns: ['id', 'name', 'updated'],
   func: async (page: IPage, kwargs) => {
-    const limit = (kwargs.limit as number) ?? 20;
+    const limit = kwargs.limit as number;
 
     await page.goto('https://mubu.com/app');
 

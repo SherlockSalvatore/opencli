@@ -15,9 +15,9 @@ cli({
   ],
   columns: ['type', 'id', 'name', 'updated', 'stared'],
   func: async (page: IPage, kwargs) => {
-    const folderId = (kwargs.folder as string) ?? '0';
+    const folderId = kwargs.folder as string;
     const starred = kwargs.starred as boolean;
-    const limit = (kwargs.limit as number) ?? 50;
+    const limit = kwargs.limit as number;
 
     await page.goto('https://mubu.com/app');
     const body = starred ? { source: 'star' } : { folderId };
