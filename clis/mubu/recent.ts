@@ -17,7 +17,6 @@ cli({
 
     await page.goto('https://mubu.com/app');
 
-    // source=recent 返回最近编辑列表
     const data = await mubuPost<ListResponse>(page, '/list/get', { folderId: 'recent' });
 
     return (data.documents ?? []).slice(0, limit).map((doc) => ({

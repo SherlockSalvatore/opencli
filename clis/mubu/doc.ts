@@ -31,7 +31,6 @@ cli({
 
     const output = format === 'md' ? nodesToMarkdown(nodes) : nodesToText(nodes);
 
-    // 单条长文本直接输出，不走 table 格式
     return [{ content: output }];
   },
 });
