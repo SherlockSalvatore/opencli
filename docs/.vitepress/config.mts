@@ -97,6 +97,7 @@ export default defineConfig({
                 { text: 'Weixin', link: '/adapters/browser/weixin' },
                 { text: 'Xianyu', link: '/adapters/browser/xianyu' },
                 { text: 'Quark', link: '/adapters/browser/quark' },
+                { text: 'Mubu', link: '/adapters/browser/mubu' },
               ],
             },
             {
