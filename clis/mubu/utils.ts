@@ -140,12 +140,20 @@ export function htmlToMarkdown(html: string): string {
   return md.trim();
 }
 
+const IMAGE_BASE = 'https://api2.mubu.com/v3';
+
 /** 递归将节点树渲染为缩进纯文本 */
 export function nodesToText(nodes: MubuNode[], depth = 0): string {
   const lines: string[] = [];
   for (const node of nodes) {
+    const indent = '  '.repeat(depth);
     const text = htmlToText(node.text);
-    if (text) lines.push('  '.repeat(depth) + text);
+    if (text) lines.push(indent + text);
+    if (node.images?.length) {
+      for (const img of node.images) {
+        lines.push(indent + `[图片: ${IMAGE_BASE}/${img.uri}]`);
+      }
+    }
     if (node.children?.length) {
       lines.push(nodesToText(node.children, depth + 1));
     }
@@ -158,9 +166,15 @@ export function nodesToMarkdown(nodes: MubuNode[], depth = 0): string {
   const lines: string[] = [];
   for (const node of nodes) {
     const text = htmlToMarkdown(node.text);
-    if (!text) continue;
+    if (!text && !node.images?.length) continue;
 
-    lines.push('  '.repeat(depth) + '- ' + text);
+    const indent = '  '.repeat(depth);
+    if (text) lines.push(indent + '- ' + text);
+    if (node.images?.length) {
+      for (const img of node.images) {
+        lines.push(indent + `  ![image](${IMAGE_BASE}/${img.uri})`);
+      }
+    }
 
     if (node.children?.length) {
       lines.push(nodesToMarkdown(node.children, depth + 1));
