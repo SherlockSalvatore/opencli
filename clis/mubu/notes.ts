@@ -96,10 +96,6 @@ function resolveRange(kwargs: Record<string, unknown>): { start: SimpleDate; end
 
 // ── API 工具 ──────────────────────────────────────────────
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
-}
-
 async function getYearDocId(page: IPage, year: number): Promise<string | null> {
   const raw = (await page.evaluate(`localStorage.getItem('daily_notes_doc_list')`)) as string | null;
   if (!raw) return null;
@@ -122,22 +118,20 @@ async function loadYearEntries(page: IPage, year: number): Promise<DayEntry[]> {
   const entries: DayEntry[] = [];
 
   for (const monthNode of yearNodes) {
-    const monthNum = parseInt(stripHtml(monthNode.text), 10);
+    const monthNum = parseInt(htmlToText(monthNode.text), 10);
     if (!monthNode.children?.length) continue;
 
     for (const dayNode of monthNode.children) {
-      // 节点文本如 "4 月 10 日，周五" → stripHtml → "4月10日，周五"
-      const stripped = stripHtml(dayNode.text);
-      // 提取日期数字：匹配 "M月D日"
-      const match = stripped.match(/^(\d+)月(\d+)日/);
+      const plain = htmlToText(dayNode.text).replace(/\s+/g, ' ').trim();
+      const compact = plain.replace(/\s/g, '');
+      const match = compact.match(/^(\d+)月(\d+)日/);
       if (!match) continue;
       const m = parseInt(match[1], 10);
       const d = parseInt(match[2], 10);
       if (m !== monthNum) continue;
 
       const dateKey = dateToKey({ year, month: m, day: d });
-      const label = htmlToText(dayNode.text).replace(/\s+/g, ' ').trim();
-      entries.push({ dateKey, label, node: dayNode });
+      entries.push({ dateKey, label: plain, node: dayNode });
     }
   }
 
@@ -218,16 +212,13 @@ cli({
     const startKey = dateToKey(start);
     const endKey = dateToKey(end);
 
-    // 加载所有涉及年份的 day 节点，并按范围过滤
-    const allEntries: DayEntry[] = [];
-    for (const year of yearsInRange(start, end)) {
-      const entries = await loadYearEntries(page, year);
-      for (const entry of entries) {
-        if (entry.dateKey >= startKey && entry.dateKey <= endKey) {
-          allEntries.push(entry);
-        }
-      }
-    }
+    // 并行加载所有涉及年份的 day 节点，按范围过滤
+    const yearResults = await Promise.all(
+      yearsInRange(start, end).map((year) => loadYearEntries(page, year)),
+    );
+    const allEntries = yearResults
+      .flat()
+      .filter((e) => e.dateKey >= startKey && e.dateKey <= endKey);
 
     if (allEntries.length === 0) {
       const label = startKey === endKey ? startKey : `${startKey} ~ ${endKey}`;
