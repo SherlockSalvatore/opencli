@@ -39,6 +39,13 @@ export interface MubuNode {
   collapsed?: boolean;
   children?: MubuNode[];
   images?: { id: string; uri: string; w: number; oh: number; ow: number }[];
+  taskStatus?: number;   // 0=普通, 1=待办, 2=已完成
+  finish?: boolean;
+  deadline?: number;     // unix 时间戳（秒）
+  deadlineType?: string;
+  remindAt?: number;     // unix 时间戳（秒）
+  remindType?: string;
+  note?: string;
 }
 
 function isAuthFailure(code: number, message?: string): boolean {
@@ -101,7 +108,9 @@ export async function mubuPost<T = unknown>(
 
 export function formatDate(ts: number): string {
   if (!ts) return '';
-  return new Date(ts).toISOString().replace('T', ' ').slice(0, 16);
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** 将幕布 HTML text 转为纯文本 */
@@ -142,16 +151,37 @@ export function htmlToMarkdown(html: string): string {
 
 const IMAGE_BASE = 'https://api2.mubu.com/v3';
 
+function imageUrl(uri: string): string {
+  return uri.startsWith('http') ? uri : `${IMAGE_BASE}/${uri}`;
+}
+
+function taskPrefix(node: MubuNode): string {
+  if (!node.taskStatus) return '';
+  return node.taskStatus === 2 ? '[x] ' : '[ ] ';
+}
+
+function taskMeta(node: MubuNode): string {
+  const parts: string[] = [];
+  if (node.deadline) {
+    const ts = formatDate(node.deadline * 1000);
+    parts.push(`截止: ${node.deadlineType === 'date' ? ts.slice(0, 10) : ts}`);
+  }
+  if (node.remindAt) parts.push(`提醒: ${formatDate(node.remindAt * 1000)}`);
+  return parts.length ? ` (${parts.join(', ')})` : '';
+}
+
 /** 递归将节点树渲染为缩进纯文本 */
 export function nodesToText(nodes: MubuNode[], depth = 0): string {
   const lines: string[] = [];
   for (const node of nodes) {
     const indent = '  '.repeat(depth);
     const text = htmlToText(node.text);
-    if (text) lines.push(indent + text);
+    const prefix = taskPrefix(node);
+    const meta = taskMeta(node);
+    if (text) lines.push(indent + prefix + text + meta);
     if (node.images?.length) {
       for (const img of node.images) {
-        lines.push(indent + `[图片: ${IMAGE_BASE}/${img.uri}]`);
+        lines.push(indent + `[图片: ${imageUrl(img.uri)}]`);
       }
     }
     if (node.children?.length) {
@@ -169,10 +199,12 @@ export function nodesToMarkdown(nodes: MubuNode[], depth = 0): string {
     if (!text && !node.images?.length) continue;
 
     const indent = '  '.repeat(depth);
-    if (text) lines.push(indent + '- ' + text);
+    const prefix = taskPrefix(node);
+    const meta = taskMeta(node);
+    if (text) lines.push(indent + '- ' + prefix + text + meta);
     if (node.images?.length) {
       for (const img of node.images) {
-        lines.push(indent + `  ![image](${IMAGE_BASE}/${img.uri})`);
+        lines.push(indent + `  ![image](${imageUrl(img.uri)})`);
       }
     }
 
