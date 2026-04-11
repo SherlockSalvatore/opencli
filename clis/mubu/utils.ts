@@ -29,6 +29,7 @@ export interface MubuFolder {
   createTime: number;
   updateTime: number;
   parentId: string;
+  stared?: number;
 }
 
 export interface MubuNode {
