@@ -158,8 +158,8 @@ function parseTableRows(tableHtml: string): string[][] {
 /** 将幕布 HTML text 转为纯文本 */
 export function htmlToText(html: string): string {
   let text = html;
-  // 表格 → 纯文本（tab 分隔）；去掉 \s*$ 锚点以支持非末尾表格
-  text = text.replace(/<div class="table-container">[\s\S]*?<\/div>/g, (m) => {
+  // 表格 → 纯文本（tab 分隔）；用 </table>\s*</div> 作结束锚，跳过 th/td 内部嵌套 div
+  text = text.replace(/<div class="table-container">[\s\S]*?<\/table>\s*<\/div>/g, (m) => {
     return parseTableRows(m).map((r) => r.join('\t')).join('\n');
   });
   return text
@@ -187,8 +187,8 @@ function tableToMarkdown(tableHtml: string): string {
 /** 将幕布 HTML text 转为 Markdown inline 标记 */
 export function htmlToMarkdown(html: string): string {
   let md = html;
-  // 表格 → Markdown 表格；去掉 \s*$ 锚点以支持非末尾表格
-  md = md.replace(/<div class="table-container">[\s\S]*?<\/div>/g, (m) => tableToMarkdown(m));
+  // 表格 → Markdown 表格；用 </table>\s*</div> 作结束锚，跳过 th/td 内部嵌套 div
+  md = md.replace(/<div class="table-container">[\s\S]*?<\/table>\s*<\/div>/g, (m) => tableToMarkdown(m));
   // strikethrough
   md = md.replace(/<span class="strikethrough">([^<]*)<\/span>/g, '~~$1~~');
   // underline（用 Unicode noncharacter 占位符防止被后续 tag-stripping 清除）
