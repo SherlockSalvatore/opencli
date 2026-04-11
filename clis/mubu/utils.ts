@@ -47,6 +47,7 @@ export interface MubuNode {
   remindAt?: number;     // unix 时间戳（秒）
   remindType?: string;
   note?: string;
+  emoji?: string;
 }
 
 function isAuthFailure(code: number, message?: string): boolean {
@@ -130,9 +131,38 @@ export function formatDate(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/** 解析幕布 HTML 表格为行列二维数组 */
+function parseTableRows(tableHtml: string): string[][] {
+  const rows: string[][] = [];
+  const rowMatches = tableHtml.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) ?? [];
+  for (const row of rowMatches) {
+    const cells: string[] = [];
+    const cellMatches = row.match(/<(?:td|th)[^>]*>[\s\S]*?<\/(?:td|th)>/gi) ?? [];
+    for (const cell of cellMatches) {
+      cells.push(decodeHtmlEntities(cell.replace(/<[^>]+>/g, '')).trim());
+    }
+    rows.push(cells);
+  }
+  return rows;
+}
+
 /** 将幕布 HTML text 转为纯文本 */
 export function htmlToText(html: string): string {
-  return html
+  let text = html;
+  // 表格 → 纯文本（tab 分隔）；去掉 \s*$ 锚点以支持非末尾表格
+  text = text.replace(/<div class="table-container">[\s\S]*?<\/div>/g, (m) => {
+    return parseTableRows(m).map((r) => r.join('\t')).join('\n');
+  });
+  return text
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
@@ -143,13 +173,35 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+/** 将幕布 HTML 表格转为 Markdown 表格（第一行视为表头） */
+function tableToMarkdown(tableHtml: string): string {
+  const rows = parseTableRows(tableHtml);
+  if (rows.length === 0) return '';
+  const lines = [`| ${rows[0].join(' | ')} |`, `| ${rows[0].map(() => '---').join(' | ')} |`];
+  for (let i = 1; i < rows.length; i++) {
+    lines.push(`| ${rows[i].join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
+
 /** 将幕布 HTML text 转为 Markdown inline 标记 */
 export function htmlToMarkdown(html: string): string {
   let md = html;
+  // 表格 → Markdown 表格；去掉 \s*$ 锚点以支持非末尾表格
+  md = md.replace(/<div class="table-container">[\s\S]*?<\/div>/g, (m) => tableToMarkdown(m));
+  // strikethrough
+  md = md.replace(/<span class="strikethrough">([^<]*)<\/span>/g, '~~$1~~');
+  // underline（用 Unicode noncharacter 占位符防止被后续 tag-stripping 清除）
+  md = md.replace(/<span class="underline">([^<]*)<\/span>/g, '\uFFFEU_OPEN\uFFFE$1\uFFFEU_CLOSE\uFFFE');
   // bold
   md = md.replace(/<span class="bold">([^<]*)<\/span>/g, '**$1**');
   // italic
   md = md.replace(/<span class="italic">([^<]*)<\/span>/g, '*$1*');
+  // node-mention（主题链接 → Markdown 链接；宽松匹配内部嵌套 span）
+  md = md.replace(
+    /<span class="node-mention"[^>]*data-doc="([^"]*)"[^>]*>([\s\S]*?)<\/span>/g,
+    (_, docId, inner) => `[${inner.replace(/<[^>]+>/g, '').trim()}](https://mubu.com/app/edit/${docId})`,
+  );
   // links（幕布链接格式：<a href="..."><span class="content-link-text">text</span></a>）
   md = md.replace(/<a href="([^"]+)"[^>]*>(?:<span[^>]*>)?([^<]*)(?:<\/span>)?<\/a>/g, '[$2]($1)');
   // 普通 span
@@ -163,6 +215,8 @@ export function htmlToMarkdown(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
+  // 还原 underline 占位符
+  md = md.replace(/\uFFFEU_OPEN\uFFFE/g, '<u>').replace(/\uFFFEU_CLOSE\uFFFE/g, '</u>');
   return md.trim();
 }
 
@@ -192,10 +246,25 @@ export function nodesToText(nodes: MubuNode[], depth = 0): string {
   const lines: string[] = [];
   for (const node of nodes) {
     const indent = '  '.repeat(depth);
+    const emoji = node.emoji ? node.emoji + ' ' : '';
     const text = htmlToText(node.text);
     const prefix = taskPrefix(node);
     const meta = taskMeta(node);
-    if (text) lines.push(indent + prefix + text + meta);
+    if (text) {
+      if (text.includes('\n')) {
+        // 多行内容（如表格）：meta 另起一行，避免追加到表格首行
+        const [first, ...rest] = text.split('\n');
+        lines.push(indent + prefix + emoji + first);
+        for (const line of rest) lines.push(indent + '  ' + line);
+        if (meta) lines.push(indent + '  ' + meta.trim());
+      } else {
+        lines.push(indent + prefix + emoji + text + meta);
+      }
+    }
+    if (node.note) {
+      const noteText = htmlToText(node.note);
+      for (const line of noteText.split('\n')) lines.push(indent + '  ' + line);
+    }
     if (node.images?.length) {
       for (const img of node.images) {
         lines.push(indent + `[图片: ${imageUrl(img.uri)}]`);
@@ -213,12 +282,28 @@ export function nodesToMarkdown(nodes: MubuNode[], depth = 0): string {
   const lines: string[] = [];
   for (const node of nodes) {
     const text = htmlToMarkdown(node.text);
-    if (!text && !node.images?.length) continue;
+    if (!text && !node.images?.length && !node.note) continue;
 
     const indent = '  '.repeat(depth);
+    const emoji = node.emoji ? node.emoji + ' ' : '';
     const prefix = taskPrefix(node);
     const meta = taskMeta(node);
-    if (text) lines.push(indent + '- ' + prefix + text + meta);
+    if (text) {
+      if (text.includes('\n')) {
+        // 多行内容（如表格）：meta 另起一行，避免追加到表格首行
+        const [first, ...rest] = text.split('\n');
+        lines.push(indent + '- ' + prefix + emoji + first);
+        const continuation = indent + '  ';
+        for (const line of rest) lines.push(continuation + line);
+        if (meta) lines.push(continuation + meta.trim());
+      } else {
+        lines.push(indent + '- ' + prefix + emoji + text + meta);
+      }
+    }
+    if (node.note) {
+      const noteLines = htmlToMarkdown(node.note).split('\n');
+      for (const line of noteLines) lines.push(indent + '  > ' + line);
+    }
     if (node.images?.length) {
       for (const img of node.images) {
         lines.push(indent + `  ![image](${imageUrl(img.uri)})`);
